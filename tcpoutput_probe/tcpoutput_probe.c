@@ -137,7 +137,7 @@ static void populate_probe_log(struct tcp_log *p, struct sock *sk, struct sk_buf
         const struct inet_sock *inet = inet_sk(sk);
 	const struct skeleton *w = inet_csk_ca(sk);
 
-	p->tstamp = ktime_get();
+	p->tstamp = ktime_get_real();
 	switch (sk->sk_family) {
 	case AF_INET:
 		tcp_probe_copy_fl_to_si4(inet, p->src.v4, s);

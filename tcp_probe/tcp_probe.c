@@ -181,7 +181,7 @@ static void jtcp_rcv_established(struct sock *sk, struct sk_buff *skb,
 		if (tcp_probe_avail() > 1) {
 			struct tcp_log *p = tcp_probe.log + tcp_probe.head;
 
-			p->tstamp = ktime_get();
+			p->tstamp = ktime_get_real();
 			switch (sk->sk_family) {
 			case AF_INET:
 				tcp_probe_copy_fl_to_si4(inet, p->src.v4, s);
@@ -308,7 +308,7 @@ static void jtcp_process_loss(struct sock *sk, int flag, bool is_dupack)
 
 				
 
-					p->tstamp=ktime_get();
+					p->tstamp=ktime_get_real();
 
 					p->seqno=tp->lost_retrans_low;
 
@@ -324,7 +324,7 @@ static void jtcp_process_loss(struct sock *sk, int flag, bool is_dupack)
 
 				
 
-					p->tstamp=ktime_get();
+					p->tstamp=ktime_get_real();
 
 					p->seqno=tp->lost_retrans_low;
 
@@ -343,7 +343,7 @@ static void jtcp_process_loss(struct sock *sk, int flag, bool is_dupack)
 		}
 		else{
 	
-			p->tstamp=ktime_get();
+			p->tstamp=ktime_get_real();
 
 			p->seqno=tp->lost_retrans_low;
 
@@ -377,7 +377,7 @@ static int jtcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
 
 		if(tcp_retransmit_probe_avail() > 1) {//There is available buffer to store the log. 
 			struct tcp_retransmit_log *p = tcp_retransmit_probe.log + tcp_retransmit_probe.head;
-			p->tstamp = ktime_get();
+			p->tstamp = ktime_get_real();
 			p->seqno=TCP_SKB_CB(skb)->seq;
 			p->type='R';
 			switch (sk->sk_family) {
