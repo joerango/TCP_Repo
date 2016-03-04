@@ -43,8 +43,8 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 	orig_accept = (orig_accept_f_type)dlsym(RTLD_NEXT,"accept");
 	int retval = orig_accept(sockfd, addr, addrlen);
 
-	if (!retval) {
-		setsockopt(sockfd, SOL_TCP, TCP_CONGESTION, cc_value, cc_len);
+	if (retval>0) {
+		setsockopt(retval, SOL_TCP, TCP_CONGESTION, cc_value, cc_len);
 	}
 	
 	return retval;
