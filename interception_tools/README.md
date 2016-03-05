@@ -11,3 +11,5 @@ Usage example. The following command will cause any connections started/accepted
 $ LD_PRELOAD=$PWD/cong_control_interceptor.so iperf -s -i 1
 ```
 
+### Capacity Signal Interceptor
+Tracks all open and accepted connections and listens on UDP port 9000 (hardcoded, for the time being) for capacity signals. A capacity signal is a single character 'a' in a UDP packet to port 9000. This signal will be passed on to all the tracked sockets using the TCP_SIGNAL_CAPACITY TCP socket option supported by my custom kernel.
