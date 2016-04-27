@@ -92,7 +92,7 @@ struct tcp_log {
 	u32	rto;
 	u32	bw_est;
 	u32 	packets_in_flight;
-	int	pressure;
+	u32	pressure;
 	char	last_decision;
 };
 
@@ -135,7 +135,7 @@ static void populate_probe_log(struct tcp_log *p, struct sock *sk, struct sk_buf
 
 	const struct tcp_sock *tp = tcp_sk(sk);
         const struct inet_sock *inet = inet_sk(sk);
-	const struct skeleton *w = inet_csk_ca(sk);
+	//const struct skeleton *w = inet_csk_ca(sk);
 
 	p->tstamp = ktime_get_real();
 	switch (sk->sk_family) {
@@ -173,10 +173,10 @@ static void populate_probe_log(struct tcp_log *p, struct sock *sk, struct sk_buf
 	p->bw_est = 0;
 	p->pressure = tp->pressure;
 	p->last_decision = 'Z';
-	if(w->flag=='j'){
-		p->bw_est= (HZ * (w->appendix)->bw_ns_est) >> 7; //Convert from bytes/jiffy to Kbps
-		p->last_decision = (w->appendix)->last_decision;
-	}
+	//if(w->flag=='j'){
+	//	p->bw_est= (HZ * (w->appendix)->bw_ns_est) >> 7; //Convert from bytes/jiffy to Kbps
+	//	p->last_decision = (w->appendix)->last_decision;
+	//}
 }
 
 inline bool is_relevant_socket(struct sock *sk, struct sk_buff *skb)
