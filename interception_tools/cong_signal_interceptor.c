@@ -7,6 +7,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <glib.h>
+#include <string.h>
 
 //SOL_TCP is just the protocol number.
 //TCP options extracted from http://lxr.free-electrons.com/source/include/uapi/linux/tcp.h
@@ -27,7 +28,12 @@ static pthread_t signalthread;
 static int keep_listening;
 static GArray *socket_array;
 static GMutex socket_array_mutex;
- 
+
+static int outfilefd;
+
+static char cc_value[256];
+static socklen_t cc_len;
+
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
 #ifdef DEBUG
@@ -42,10 +48,11 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 		g_mutex_lock(&socket_array_mutex);
 		g_array_append_val(socket_array, sockfd);
 		g_mutex_unlock(&socket_array_mutex);
-
-//		int signal_value = 1;
-//		socklen_t len = sizeof(signal_value);
-//		setsockopt(sockfd, SOL_TCP, TCP_CAPACITY_SIGNAL, &signal_value, len);
+	
+		if(setsockopt(sockfd, SOL_TCP, TCP_CONGESTION, cc_value, cc_len) == 0)
+			printf("Successfully set congestion control module to %s\n", cc_value);
+		else
+			printf("Failed to set CC module\n");
 	}
 	
 	return retval;
@@ -66,9 +73,10 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 		g_array_append_val(socket_array, retval);
 		g_mutex_unlock(&socket_array_mutex);
 
-//		int signal_value = 1;
-//		socklen_t len = sizeof(signal_value);
-//		setsockopt(retval, SOL_TCP, TCP_CAPACITY_SIGNAL, &signal_value, len);
+		if(setsockopt(sockfd, SOL_TCP, TCP_CONGESTION, cc_value, cc_len) == 0)
+			printf("Successfully set congestion control module to %s\n", cc_value);
+		else
+			printf("Failed to set CC module\n");
 	}
 	
 	return retval;
@@ -115,24 +123,30 @@ void *signal_listener_entry(void *param)
 	
 	
 	
-	int signal_value = 1;
-	socklen_t len = sizeof(signal_value);
+	uint32_t *signal_value;
 
 	while (keep_listening) {
 		rcvlen = recvfrom(sockfd, rcv_buf, BUFSIZE, 0, (struct sockaddr *) &remaddr, &addrlen);
 	
-		if (rcvlen > 0 && rcv_buf[0] == 'a') {
+		if (rcvlen >= 5 && rcv_buf[0] == 'a') {
+			signal_value = (int*) &rcv_buf[1];
+			//printf("INFO: Got buffer signal. Value is %u\n", *signal_value);
 			g_mutex_lock(&socket_array_mutex);
 			int index = -1, i;
 			for(i=0; i<socket_array->len; i++) {
-				setsockopt(g_array_index(socket_array, int, i),
-					 SOL_TCP, TCP_CAPACITY_SIGNAL, &signal_value, len);
+				if(setsockopt(g_array_index(socket_array, int, i),
+					 SOL_TCP, TCP_CAPACITY_SIGNAL, signal_value, sizeof(uint32_t)) == 0)
+					//printf("Successfully sent signal to a socket!\n");
+					0;
+				else
+					//printf("Failed to send signal to a socket!\n");
+						0;
 				
 			}
 			g_mutex_unlock(&socket_array_mutex);
 		}
 	}	
-	return;	
+	return 0;	
 }
 
 
@@ -143,6 +157,16 @@ __attribute__((constructor)) void init(void)
 		printf("ERROR: Capacity signal interceptor failed to initialize UDP socket for capacity signal.\n");
 		return;
 	}
+
+	//strncpy(cc_value, "nok", 256);
+	FILE *conf_file;
+	conf_file = fopen("cc.val", "r");		
+	fscanf(conf_file, "%s", cc_value);
+	
+	cc_len = strlen(cc_value);
+
+	cc_len = strlen(cc_value);	
+	printf("CONGESTION CONTROL INTERCEPTOR LOADED: '%s' will be used.\n", cc_value);
 
 	struct sockaddr_in myaddr;
 	memset((char *) &myaddr, 0, sizeof(myaddr));
