@@ -28,7 +28,8 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	int retval = orig_connect(sockfd, addr, addrlen);
 
 	if (!retval) {
-		setsockopt(sockfd, SOL_TCP, TCP_CONGESTION, cc_value, cc_len);
+		if(setsockopt(retval, SOL_TCP, TCP_CONGESTION, cc_value, cc_len) != 0)
+			printk("Failed to set CC module!!\n");
 	}
 	
 	return retval;
@@ -44,7 +45,8 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 	int retval = orig_accept(sockfd, addr, addrlen);
 
 	if (retval>0) {
-		setsockopt(retval, SOL_TCP, TCP_CONGESTION, cc_value, cc_len);
+		if(setsockopt(retval, SOL_TCP, TCP_CONGESTION, cc_value, cc_len) != 0)
+			printk("Failed to set CC module!!\n");
 	}
 	
 	return retval;

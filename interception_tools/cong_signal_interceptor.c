@@ -8,16 +8,22 @@
 #include <pthread.h>
 #include <glib.h>
 #include <string.h>
+#include <linux/socket.h>
+#include <linux/tcp.h>
+#include <errno.h>
 
+/*
 //SOL_TCP is just the protocol number.
 //TCP options extracted from http://lxr.free-electrons.com/source/include/uapi/linux/tcp.h
 #define SOL_TCP 6
-#define TCP_CAPACITY_SIGNAL 29
+//#define TCP_CAPACITY_SIGNAL 29
+#define TCP_LINKLAYER_SIGNAL 30
 #define TCP_CONGESTION 13
-
+*/
+#define SOL_TCP 6
 #define SIGNAL_LISTEN_PORT 9000
 
-//#define DEBUG
+#define DEBUG
  
 typedef int (*orig_connect_f_type)(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
 typedef int (*orig_accept_f_type)(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
@@ -73,7 +79,7 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 		g_array_append_val(socket_array, retval);
 		g_mutex_unlock(&socket_array_mutex);
 
-		if(setsockopt(sockfd, SOL_TCP, TCP_CONGESTION, cc_value, cc_len) == 0)
+		if(setsockopt(retval, SOL_TCP, TCP_CONGESTION, cc_value, cc_len) == 0)
 			printf("Successfully set congestion control module to %s\n", cc_value);
 		else
 			printf("Failed to set CC module\n");
@@ -119,28 +125,32 @@ void *signal_listener_entry(void *param)
 	char rcv_buf[BUFSIZE];
 	int rcvlen;
 	struct sockaddr_in remaddr;
+	struct tcp_linklayer_info *llinfo;
 	socklen_t addrlen;
 	
-	
-	
-	uint32_t *signal_value;
-
 	while (keep_listening) {
 		rcvlen = recvfrom(sockfd, rcv_buf, BUFSIZE, 0, (struct sockaddr *) &remaddr, &addrlen);
 	
-		if (rcvlen >= 5 && rcv_buf[0] == 'a') {
-			signal_value = (int*) &rcv_buf[1];
-			//printf("INFO: Got buffer signal. Value is %u\n", *signal_value);
+		if (rcvlen > (int) sizeof(struct tcp_linklayer_info) && rcv_buf[0] == 'a') {
+			llinfo = (struct tcp_linklayer_info *) &rcv_buf[1];
+			//printf("INFO: Recvlen= %d. Got link-layer signal. Seq# %u, QueueSize %u, QueueDelay %u, BWEst %u\n", rcvlen,
+			//	llinfo->last_seqno, llinfo->queue_size, llinfo->queue_delay_ms, llinfo->bw_est);
 			g_mutex_lock(&socket_array_mutex);
 			int index = -1, i;
 			for(i=0; i<socket_array->len; i++) {
 				if(setsockopt(g_array_index(socket_array, int, i),
-					 SOL_TCP, TCP_CAPACITY_SIGNAL, signal_value, sizeof(uint32_t)) == 0)
-					//printf("Successfully sent signal to a socket!\n");
+					 SOL_TCP, TCP_LINKLAYER_SIGNAL, llinfo, sizeof(struct tcp_linklayer_info)) == 0)
+#ifdef DEBUG
+					printf("Successfully sent signal to a socket #%d!\n", i);
+#else
 					0;
+#endif
 				else
-					//printf("Failed to send signal to a socket!\n");
-						0;
+#ifdef DEBUG
+					printf("Failed to send signal to a socket #%d. Error code is %d!\n", i, errno);
+#else
+					0;
+#endif
 				
 			}
 			g_mutex_unlock(&socket_array_mutex);
@@ -199,7 +209,7 @@ __attribute__((constructor)) void init(void)
 	}
 
 	
-	printf("CAPACITY SIGNAL INTERCEPTOR LOADED: Listening for signals on port %d.\n", SIGNAL_LISTEN_PORT);	
+	printf("LINKLAYER SIGNAL INTERCEPTOR LOADED: Listening for signals on port %d.\n", SIGNAL_LISTEN_PORT);	
 }
 
 
